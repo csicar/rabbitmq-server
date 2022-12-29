@@ -227,8 +227,12 @@ websocket_info({'EXIT', From, Reason},
     {stop, _Reason, ProcState} ->
         stop(State#state{ proc_state = ProcState });
     unknown_exit ->
-        stop(State)
+        self() ! close_websocket, % Allow the server to send remaining error messages
+        {ok, State}
   end;
+websocket_info(close_websocket, State) ->
+    stop(State);
+
 %%----------------------------------------------------------------------------
 
 websocket_info(emit_stats, State) ->
@@ -291,7 +295,8 @@ handle_data1(Bytes, State = #state{proc_state  = ProcState,
                                      proc_state  = ProcState1,
                                      connection  = ConnPid });
                 {stop, _Reason, ProcState1} ->
-                    stop(State#state{ proc_state = ProcState1 })
+                    self() ! close_websocket,
+                    {ok, State#state{ proc_state = ProcState1 }}
             end;
         Other ->
             Other
